@@ -300,10 +300,8 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
     <div class="panel" data-tile="gmail">
       <div class="tile-head"><div class="badge">@</div><h3>מייל</h3><span class="chip"></span></div>
       <label class="switch"><input type="checkbox" data-bind="connections.gmail.connected"> מחובר</label>
-      <label>מה לקרוא</label>
-      <input type="text" data-bind="connections.gmail.query" dir="auto" placeholder="label:clients">
-      <label>מה לא לקרוא</label>
-      <input type="text" data-bind="connections.gmail.exclude" placeholder="מיילים אישיים">
+      <label>תווית ב-Gmail. נקרא רק מה שמסומן בה</label>
+      <input type="text" data-bind="connections.gmail.label" dir="ltr" placeholder="taste-engine">
     </div>
 
     <div class="panel" data-tile="figma">
@@ -458,7 +456,7 @@ const blank = () => ({
   designer: { name: "" },
   dictation: { consent: false },
   connections: {
-    gmail: { connected: false, query: "", exclude: "" },
+    gmail: { connected: false, label: "" },   // empty = the /mail default label, taste-engine
     drive: { connected: false, folders: "" },
     figma: { connected: false, files: "" },
     pinterest: { boards: "", hasSecret: false },
@@ -560,7 +558,7 @@ const filled = s => !!(s && String(s).trim());
 function tileState(key) {
   const c = state.connections[key];
   switch (key) {
-    case "gmail": return c.connected ? (filled(c.query) ? "on" : "part") : "";
+    case "gmail": return c.connected ? "on" : "";
     case "figma": return c.connected ? (filled(c.files) ? "on" : "part") : (filled(c.files) ? "part" : "");
     case "drive": return c.connected ? (filled(c.folders) ? "on" : "part") : (filled(c.folders) ? "part" : "");
     case "pinterest": return filled(c.boards) ? "on" : "";
