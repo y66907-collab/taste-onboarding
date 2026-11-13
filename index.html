@@ -196,6 +196,31 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
 .terminal pre::before{content:"> ";color:var(--dim)}
 .words .row{margin-bottom:8px}
 
+/* room */
+.room{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}
+.agent{position:relative;display:flex;flex-direction:column;gap:.9rem;min-height:12rem;margin:0}
+.agent.feature{grid-column:span 2;background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(124,245,201,.05)),linear-gradient(180deg,var(--panel),var(--bg2))}
+.agent .top{display:flex;align-items:center;gap:.9rem}
+.avatar{position:relative;width:3.2rem;height:3.2rem;border-radius:1rem;display:grid;place-items:center;flex:none;
+  font-family:var(--mono);font-weight:700;font-size:1rem;background:var(--panel2);border:1px solid var(--line2);color:var(--text)}
+.agent h3{margin:0;font-size:1.2rem}
+.agent .chip{margin-inline-start:auto}
+.agent .line{color:var(--muted);font-size:.95rem;line-height:1.5;flex:1}
+.agent .meta{display:flex;align-items:flex-end;justify-content:space-between;gap:.5rem}
+.agent .found{font-family:var(--mono);font-size:2.2rem;font-weight:700;line-height:1;color:var(--text)}
+.agent .found small{display:block;font-family:var(--sans);font-size:.75rem;font-weight:400;color:var(--dim);margin-top:.3rem}
+.agent .ago{font-size:.8rem;color:var(--dim)}
+.agent[data-state="working"] .avatar{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 0 var(--accent-glow);animation:ring 1.6s infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(124,245,201,.35)}100%{box-shadow:0 0 0 14px rgba(124,245,201,0)}}
+.agent[data-state="needs-you"]{border-color:rgba(245,185,124,.45)}
+.agent[data-state="needs-you"] .avatar{border-color:var(--warn);color:var(--warn)}
+.agent[data-state="done"] .avatar{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.agent[data-state="error"] .avatar{border-color:var(--dislike);color:var(--dislike)}
+.agent[data-state="skipped"]{opacity:.45}
+.chip.err{color:var(--dislike);border-color:rgba(255,122,138,.4);background:rgba(255,122,138,.08)}
+@media (max-width:1250px){ .room{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:860px){ .room{grid-template-columns:minmax(0,1fr)} .agent.feature{grid-column:auto} }
+
 @media (max-width:860px){
   .shell{grid-template-columns:minmax(0,1fr)}
   main{min-width:0}
@@ -402,6 +427,18 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
   </div>
 </section>
 
+<!-- ============ 6. Room ============ -->
+<section class="step" data-title="חדר" data-code="06 / ROOM">
+  <div class="kicker">06 / ROOM</div>
+  <h1>חדר הסוכנים</h1>
+  <p class="lead" id="roomSummary">הסוכנים מתחילים לעבוד אחרי הפקודה.</p>
+  <div class="panel" id="roomNoFolder" hidden>
+    <div class="tile-head"><div class="badge">⌂</div><h3>צריך לקשר את תיקיית הפרויקט</h3></div>
+    <button class="btn" id="roomPickFolder">קישור תיקייה</button>
+  </div>
+  <div class="room" id="room"></div>
+</section>
+
 <div class="actions">
   <button class="btn ghost" id="back">→ הקודם</button>
   <button class="btn primary" id="next">הבא ←</button>
@@ -512,6 +549,7 @@ function go(i) {
   document.getElementById("next").hidden = current === steps.length - 1;
   if (steps[current].dataset.title === "סיום") renderSummary();
   if (steps[current].dataset.title === "תגובות") renderReaction();
+  if (steps[current].dataset.title === "חדר") startRoom(); else stopRoom();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 document.getElementById("back").addEventListener("click", () => go(current - 1));
@@ -544,7 +582,8 @@ function stepStates() {
     stories >= 3 ? "done" : (stories ? "part" : ""),
     reacted >= 20 ? "done" : (reacted ? "part" : ""),
     words >= 3 && filled(state.never) ? "done" : (words || filled(state.never) ? "part" : ""),
-    state.savedAt ? "done" : ""
+    state.savedAt ? "done" : "",
+    roomState
   ];
 }
 function refreshStatus() {
@@ -768,6 +807,7 @@ document.getElementById("pickFolder").addEventListener("click", async () => {
     const sys = document.getElementById("sysFolder"); sys.textContent = dir.name; sys.className = "on";
     imgIndex = firstUnanswered();
     renderReaction();
+    if (roomTimer) pollRoom();
   } catch (e) {
     if (e.name !== "AbortError") status.innerHTML = '<div class="note">לא נפתח: ' + escapeHtml(e.message) + '</div>';
   }
@@ -909,6 +949,78 @@ document.getElementById("copyCmd").addEventListener("click", async e => {
   catch (err) { getSelection().selectAllChildren(document.getElementById("cmd")); btn.textContent = "סומן · Ctrl+C"; }
   setTimeout(() => (btn.textContent = "העתקה"), 2000);
 });
+
+/* ---------- room: one card per agent, read from onboarding/room/<id>.json ---------- */
+const ROOM_AGENTS = [
+  { id: "interview", name: "היכרות", badge: "◎", feature: true, idle: "משוחחת איתך ב-Claude Code" },
+  { id: "mail", name: "מייל", badge: "@", idle: "איך בקשה של לקוח הופכת להחלטה" },
+  { id: "figma", name: "Figma", badge: "F", idle: "צבעים, טיפוגרפיה, גרסאות" },
+  { id: "drive", name: "Drive", badge: "D", idle: "בריפים והצעות קודמות" },
+  { id: "pinterest", name: "Pinterest", badge: "P", idle: "מה חוזר בלוחות" },
+  { id: "instagram", name: "Instagram", badge: "IG", idle: "מה חוזר בפרופילים" },
+  { id: "claude-history", name: "היסטוריית Claude", badge: "C", idle: "תיקונים שכבר כתבת" }
+];
+const STATE_CHIP = {
+  waiting: ["ממתין", ""], working: ["עובד", "on"], "needs-you": ["מחכה לך", "part"],
+  done: ["סיים", "on"], skipped: ["דילג", ""], error: ["תקלה", "err"], none: ["לא התחיל", ""]
+};
+let roomTimer = null, roomData = {}, roomState = "";
+
+async function readRoom() {
+  if (!rootDir) return null;
+  const out = {};
+  let dir;
+  try { dir = await (await rootDir.getDirectoryHandle("onboarding")).getDirectoryHandle("room"); }
+  catch (e) { return out; }                       // no room folder yet: nobody started
+  for (const a of ROOM_AGENTS) {
+    try {
+      const f = await (await dir.getFileHandle(a.id + ".json")).getFile();
+      out[a.id] = JSON.parse(await f.text());
+    } catch (e) {}                                // missing or mid-write: keep the last value
+  }
+  return out;
+}
+function ago(iso) {
+  const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
+  if (!isFinite(s)) return "";
+  return s < 60 ? "עכשיו" : s < 3600 ? `לפני ${Math.round(s / 60)} דק׳` : `לפני ${Math.round(s / 3600)} שע׳`;
+}
+function renderRoom() {
+  document.getElementById("roomNoFolder").hidden = !!rootDir;
+  const counts = { working: 0, "needs-you": 0, done: 0 };
+  document.getElementById("room").innerHTML = ROOM_AGENTS.map(a => {
+    const d = roomData[a.id] || {};
+    const st = STATE_CHIP[d.state] ? d.state : "none";
+    if (st in counts) counts[st]++;
+    const [label, cls] = STATE_CHIP[st];
+    return `<div class="panel agent${a.feature ? " feature" : ""}" data-state="${st}">
+      <div class="top"><div class="avatar">${a.badge}</div><h3>${a.name}</h3><span class="chip ${cls}">${label}</span></div>
+      <div class="line">${escapeHtml(d.line || a.idle)}</div>
+      <div class="meta"><div class="found">${d.found || 0}<small>ממצאים</small></div><span class="ago">${d.updated ? ago(d.updated) : ""}</span></div>
+    </div>`;
+  }).join("");
+  const parts = [];
+  if (counts.working) parts.push(`${counts.working} עובדים`);
+  if (counts["needs-you"]) parts.push(`${counts["needs-you"]} מחכים לך`);
+  if (counts.done) parts.push(`${counts.done} סיימו`);
+  document.getElementById("roomSummary").textContent = parts.length ? parts.join(" · ") : "הסוכנים מתחילים לעבוד אחרי הפקודה.";
+  const started = Object.keys(roomData).length;
+  const open = ROOM_AGENTS.some(a => ["waiting", "working", "needs-you"].includes((roomData[a.id] || {}).state));
+  roomState = !started ? "" : open ? "part" : "done";
+  refreshStatus();
+}
+async function pollRoom() {
+  const d = await readRoom();
+  if (d) roomData = d;
+  renderRoom();
+}
+function startRoom() {
+  stopRoom();
+  pollRoom();
+  roomTimer = setInterval(pollRoom, 3000);
+}
+function stopRoom() { clearInterval(roomTimer); roomTimer = null; }
+document.getElementById("roomPickFolder").addEventListener("click", () => document.getElementById("pickFolder").click());
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
