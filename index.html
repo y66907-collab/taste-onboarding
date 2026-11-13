@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taste Engine</title>
+<!--
+  Designer onboarding page for taste-engine.
+  Single file, no server, no external requests (except browser dictation, which asks for consent first).
+  Reads reaction images from onboarding/reactions/ and writes onboarding/answers/onboarding.json
+  through the File System Access API (Chrome / Edge). Fallback: pick images by hand, download the JSON.
+  See onboarding/README.md.
+-->
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0a0b0e; --bg2:#0e1015; --panel:#13151c; --panel2:#181b24; --line:#232733; --line2:#2e3342;
+  --text:#e9eaee; --muted:#8a8f9c; --dim:#5b6070;
+  --accent:#7cf5c9; --accent-ink:#04150f; --accent-glow:rgba(124,245,201,.18);
+  --violet:#a78bfa; --warn:#f5b97c; --warn-bg:rgba(245,185,124,.08);
+  --like:#7cf5c9; --dislike:#ff7a8a; --mixed:#f5d67c;
+  --radius:14px;
+  --mono:"Cascadia Code","JetBrains Mono",Consolas,ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.6 "Segoe UI","Arial Hebrew",Arial,sans-serif;
+  background-image:
+    radial-gradient(900px 500px at 85% -10%, rgba(124,245,201,.07), transparent 60%),
+    radial-gradient(700px 500px at 0% 110%, rgba(167,139,250,.06), transparent 60%);
+  background-attachment:fixed}
+.mono{font-family:var(--mono);letter-spacing:.02em}
+::selection{background:var(--accent);color:var(--accent-ink)}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+aside{position:sticky;top:0;height:100vh;border-inline-end:1px solid var(--line);
+  background:rgba(14,16,21,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;padding:22px 18px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:26px}
+.brand .logo{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--violet));color:var(--accent-ink);font-weight:800;font-size:14px}
+.brand b{font-family:var(--mono);font-size:13px;letter-spacing:.12em;direction:ltr}
+.brand small{display:block;color:var(--dim);font-size:11px;font-family:var(--mono);letter-spacing:.08em;direction:ltr;text-align:right}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.steps button{width:100%;display:flex;align-items:center;gap:12px;border:0;background:none;color:var(--muted);
+  font:inherit;text-align:right;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background .15s,color .15s}
+.steps button:hover{background:var(--panel);color:var(--text)}
+.steps button[aria-current="step"]{background:var(--panel2);color:var(--text);box-shadow:inset -2px 0 0 var(--accent)}
+.steps .num{font-family:var(--mono);font-size:11px;color:var(--dim);width:22px;direction:ltr}
+.steps .dot{margin-inline-start:auto;width:8px;height:8px;border-radius:50%;background:var(--line2)}
+.steps .dot.part{background:var(--warn)}
+.steps .dot.done{background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.meter{margin-top:auto;padding-top:18px;border-top:1px solid var(--line)}
+.meter .row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px}
+.meter .bar{height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.meter .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--violet),var(--accent));transition:width .4s}
+.sys{margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.8;direction:ltr;text-align:left}
+.sys span{color:var(--muted)}
+.sys .on{color:var(--accent)}
+
+main{padding:34px clamp(16px,4vw,56px) 60px;max-width:1040px;width:100%}
+section.step{display:none;animation:in .35s ease}
+section.step.active{display:block}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--accent);direction:ltr;text-align:right;margin-bottom:6px}
+h1{font-size:34px;line-height:1.2;margin:0 0 8px;font-weight:700;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:0 0 28px;max-width:640px;font-size:16px}
+
+/* ---------- panels ---------- */
+.panel{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin:0 0 14px}
+.panel h3{margin:0 0 4px;font-size:16px;font-weight:600}
+.panel p.hint{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.grid .panel{margin:0}
+.tile-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.badge{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:13px;
+  background:var(--panel2);border:1px solid var(--line2);color:var(--text);font-family:var(--mono)}
+.tile-head h3{flex:1;margin:0}
+.chip{font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:3px 9px;border-radius:999px;
+  border:1px solid var(--line2);color:var(--dim);white-space:nowrap}
+.chip.on{color:var(--accent);border-color:rgba(124,245,201,.4);background:var(--accent-glow)}
+.chip.part{color:var(--warn);border-color:rgba(245,185,124,.4);background:var(--warn-bg)}
+
+label{display:block;font-size:12.5px;color:var(--muted);margin:12px 0 5px}
+input[type=text],textarea{width:100%;font:inherit;color:var(--text);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;transition:border-color .15s,box-shadow .15s}
+input::placeholder,textarea::placeholder{color:var(--dim)}
+textarea{min-height:84px;resize:vertical}
+textarea.long{min-height:180px}
+input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row > *{flex:1 1 170px}
+
+/* switch */
+.switch{display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--text);font-size:14px;margin:4px 0}
+.switch input{appearance:none;width:38px;height:22px;border-radius:999px;background:var(--line2);position:relative;cursor:pointer;
+  transition:background .2s;flex:none;margin:0}
+.switch input::after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:transform .2s,background .2s}
+.switch input:checked{background:rgba(124,245,201,.35)}
+.switch input:checked::after{transform:translateX(-16px);background:var(--accent);box-shadow:0 0 8px var(--accent)}
+
+/* buttons */
+.btn{font:inherit;font-size:14px;border:1px solid var(--line2);background:var(--panel2);color:var(--text);
+  border-radius:10px;padding:10px 18px;cursor:pointer;transition:border-color .15s,background .15s,transform .1s}
+.btn:hover{border-color:var(--muted)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;box-shadow:0 0 24px var(--accent-glow)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:none}
+.btn:disabled{opacity:.35;cursor:default}
+.actions{display:flex;justify-content:space-between;gap:10px;margin-top:26px}
+
+/* mic */
+.with-mic{position:relative}
+.with-mic textarea{padding-inline-end:12px;padding-bottom:52px}
+.mic{position:absolute;bottom:10px;left:10px;height:36px;min-width:36px;padding:0 10px;border-radius:999px;
+  border:1px solid var(--line2);background:var(--panel2);cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--muted);font:inherit;font-size:12px}
+.mic svg{width:16px;height:16px}
+.mic:hover{color:var(--text);border-color:var(--muted)}
+.mic .wave{display:none;gap:2px;align-items:center;height:14px}
+.mic .wave i{width:2px;background:currentColor;border-radius:2px;animation:wave .9s infinite ease-in-out}
+.mic .wave i:nth-child(2){animation-delay:.15s}.mic .wave i:nth-child(3){animation-delay:.3s}.mic .wave i:nth-child(4){animation-delay:.45s}
+@keyframes wave{0%,100%{height:3px}50%{height:14px}}
+.mic.on{color:var(--accent-ink);background:var(--accent);border-color:var(--accent);box-shadow:0 0 18px var(--accent-glow)}
+.mic.on .wave{display:flex}
+.interim{min-height:1.4em;font-size:12.5px;color:var(--accent);margin-top:6px;font-style:italic}
+
+.note{border:1px solid rgba(245,185,124,.3);background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13.5px;margin:10px 0 0}
+.ok{border:1px solid rgba(124,245,201,.3);background:var(--accent-glow);color:var(--accent);border-radius:10px;padding:10px 12px;font-size:13.5px;margin:10px 0 0}
+
+/* welcome */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 14px}
+.flow div{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--bg2)}
+.flow b{display:block;font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:.1em;margin-bottom:4px;direction:ltr;text-align:right}
+.flow span{font-size:13.5px;color:var(--muted)}
+
+/* projects */
+.project{position:relative}
+.project .remove{position:absolute;top:16px;left:16px;font-size:12px;color:var(--dim);background:none;border:0;cursor:pointer;font-family:var(--mono)}
+.project .remove:hover{color:var(--dislike)}
+.project h3 .mono{color:var(--accent);font-size:12px;margin-inline-start:8px}
+
+/* reactions */
+.stage{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;align-items:start}
+.viewer{position:relative;border:1px solid var(--line);border-radius:var(--radius);background:#050608;overflow:hidden;min-height:380px;display:grid;place-items:center}
+.viewer img{max-width:100%;max-height:68vh;display:block}
+.viewer .count{position:absolute;top:12px;right:12px;font-family:var(--mono);font-size:11px;color:var(--muted);
+  background:rgba(10,11,14,.75);border:1px solid var(--line);padding:3px 9px;border-radius:999px;direction:ltr}
+.verdicts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.verdicts button{font:inherit;padding:14px 8px;border-radius:12px;border:1px solid var(--line2);background:var(--panel2);color:var(--text);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;transition:all .15s}
+.verdicts button kbd{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.verdicts button[aria-pressed="true"][data-v="like"]{border-color:var(--like);color:var(--like);background:rgba(124,245,201,.1);box-shadow:0 0 18px rgba(124,245,201,.15)}
+.verdicts button[aria-pressed="true"][data-v="mixed"]{border-color:var(--mixed);color:var(--mixed);background:rgba(245,214,124,.08)}
+.verdicts button[aria-pressed="true"][data-v="dislike"]{border-color:var(--dislike);color:var(--dislike);background:rgba(255,122,138,.08)}
+.strip{display:flex;gap:4px;margin-top:12px;flex-wrap:wrap}
+.strip i{width:14px;height:4px;border-radius:2px;background:var(--line2)}
+.strip i.like{background:var(--like)}.strip i.mixed{background:var(--mixed)}.strip i.dislike{background:var(--dislike)}
+.strip i.cur{outline:1px solid var(--text);outline-offset:2px}
+.keys{font-size:12px;color:var(--dim);margin-top:10px}
+.keys kbd{font-family:var(--mono);border:1px solid var(--line2);border-radius:5px;padding:0 5px;color:var(--muted)}
+input[type=file]{color:var(--muted);font:inherit;font-size:13px}
+input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2);background:var(--panel2);color:var(--text);border-radius:8px;padding:7px 12px;margin-inline-end:10px;cursor:pointer}
+
+/* finish */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.stat{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--bg2)}
+.stat b{display:block;font-family:var(--mono);font-size:26px;color:var(--text);line-height:1.1}
+.stat span{font-size:12px;color:var(--muted)}
+.terminal{border:1px solid var(--line2);border-radius:12px;background:#050608;overflow:hidden}
+.terminal .bar{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);direction:ltr}
+.terminal .bar i{width:10px;height:10px;border-radius:50%;background:var(--line2)}
+.terminal pre{margin:0;padding:16px;font-family:var(--mono);font-size:14px;color:var(--accent);direction:ltr;text-align:left;white-space:pre-wrap}
+.terminal pre::before{content:"> ";color:var(--dim)}
+.words .row{margin-bottom:8px}
+
+@media (max-width:860px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  main{min-width:0}
+  .grid{grid-template-columns:minmax(0,1fr)}
+  aside{position:sticky;top:0;z-index:10;height:auto;min-width:0;flex-direction:row;align-items:center;gap:12px;padding:10px 16px;overflow-x:auto}
+  .brand{margin:0;flex:none}.brand > div:last-child,.meter,.sys{display:none}
+  .steps{flex-direction:row}
+  .steps button{padding:8px 10px;white-space:nowrap}
+  .steps .dot{margin-inline-start:6px}
+  .stage{grid-template-columns:1fr}
+  h1{font-size:27px}
+  main{padding-top:22px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<aside>
+  <div class="brand">
+    <div class="logo">T</div>
+    <div><b>TASTE ENGINE</b><small>profile setup · v1</small></div>
+  </div>
+  <ol class="steps" id="nav"></ol>
+  <div class="meter">
+    <div class="row"><span>הפרופיל שלך</span><span class="mono" id="pct">0%</span></div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="sys">
+      <div>folder <span id="sysFolder">not linked</span></div>
+      <div>mic&nbsp;&nbsp;&nbsp; <span id="sysMic">—</span></div>
+      <div>draft&nbsp; <span class="on" id="sysDraft">autosave</span></div>
+    </div>
+  </div>
+</aside>
+
+<main>
+
+<!-- ============ 0. Welcome ============ -->
+<section class="step" data-title="פתיחה" data-code="00 / INIT">
+  <div class="kicker">00 / INIT</div>
+  <h1>מלמדים את המערכת את הטעם שלך</h1>
+  <p class="lead">בסוף התהליך המערכת תציע ללקוחות חדשים כיווני עיצוב כמו שאת היית מציעה. המילה האחרונה תמיד שלך.</p>
+
+  <div class="flow">
+    <div><b>01 CONNECT</b><span>מחברים מייל, דרייב, פיגמה, פינטרסט, אינסטגרם</span></div>
+    <div><b>02 PROJECTS</b><span>מספרים על פרויקטים שאהבת</span></div>
+    <div><b>03 REACT</b><span>מגיבים לעבודות של אחרים</span></div>
+    <div><b>04 LEXICON</b><span>המילים שלך, ומה לא אף פעם</span></div>
+    <div><b>05 LEARN</b><span>פקודה אחת, והמערכת לומדת</span></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h3>מי את</h3>
+      <label>שם</label>
+      <input type="text" data-bind="designer.name" placeholder="השם שלך">
+    </div>
+    <div class="panel">
+      <div class="tile-head"><div class="badge">⌂</div><h3>תיקיית הפרויקט</h3><span class="chip" id="chipFolder">לא מקושר</span></div>
+      <p class="hint">התיקייה הראשית של ה-repo (יש בה <span dir="ltr">taste</span> ו-<span dir="ltr">onboarding</span>). ממנה נטענות התמונות, ואליה נשמרות התשובות.</p>
+      <button class="btn" id="pickFolder">קישור תיקייה</button>
+      <div id="folderStatus"></div>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:14px">
+    <div class="tile-head"><div class="badge">◉</div><h3>מיקרופון</h3><span class="chip" id="chipMic">כבוי</span></div>
+    <p class="hint">בכל שדה טקסט יש כפתור הכתבה: מדברים, והטקסט נכתב לבד. אפשר גם להקליד. הטיוטה נשמרת אוטומטית בדפדפן הזה.</p>
+    <div id="micStatus"></div>
+  </div>
+</section>
+
+<!-- ============ 1. Connections ============ -->
+<section class="step" data-title="חיבורים" data-code="01 / CONNECT">
+  <div class="kicker">01 / CONNECT</div>
+  <h1>חיבורים</h1>
+  <p class="lead">כל חיבור הוא בחשבון שלך ובהסכמה שלך. ככל שתחברי יותר, המערכת תלמד יותר. את החשבונות מחברים ב-claude.ai, בהגדרות ← Connectors, ומסמנים כאן.</p>
+
+  <div class="grid">
+    <div class="panel" data-tile="gmail">
+      <div class="tile-head"><div class="badge">@</div><h3>מייל</h3><span class="chip"></span></div>
+      <label class="switch"><input type="checkbox" data-bind="connections.gmail.connected"> חיברתי Gmail או Outlook</label>
+      <label>מה מותר לקרוא (חיפוש או תווית)</label>
+      <input type="text" data-bind="connections.gmail.query" dir="auto" placeholder="label:clients">
+      <label>מה אסור לקרוא בשום מקרה</label>
+      <input type="text" data-bind="connections.gmail.exclude" placeholder="מיילים אישיים, לקוח מסוים">
+      <p class="hint" style="margin:10px 0 0">המערכת תראה לך את רשימת המיילים לפני שהיא קוראת.</p>
+    </div>
+
+    <div class="panel" data-tile="figma">
+      <div class="tile-head"><div class="badge">F</div><h3>Figma</h3><span class="chip"></span></div>
+      <label class="switch"><input type="checkbox" data-bind="connections.figma.connected"> חיברתי Figma</label>
+      <label>קבצים שאת גאה בהם (קישור בכל שורה)</label>
+      <textarea data-bind="connections.figma.files" dir="ltr" placeholder="https://www.figma.com/design/..."></textarea>
+    </div>
+
+    <div class="panel" data-tile="drive">
+      <div class="tile-head"><div class="badge">D</div><h3>Drive</h3><span class="chip"></span></div>
+      <label class="switch"><input type="checkbox" data-bind="connections.drive.connected"> חיברתי Google Drive או Dropbox</label>
+      <label>תיקיות של עבודות קודמות (קישור בכל שורה)</label>
+      <textarea data-bind="connections.drive.folders" dir="ltr" placeholder="https://drive.google.com/drive/folders/..."></textarea>
+    </div>
+
+    <div class="panel" data-tile="pinterest">
+      <div class="tile-head"><div class="badge">P</div><h3>Pinterest</h3><span class="chip"></span></div>
+      <p class="hint">אין חיבור מוכן. המערכת קוראת את הלוחות בדפדפן. לוח סודי נקרא רק כשאת מחוברת.</p>
+      <label>לוחות (קישור בכל שורה)</label>
+      <textarea data-bind="connections.pinterest.boards" dir="ltr" placeholder="https://www.pinterest.com/..."></textarea>
+      <label class="switch" style="margin-top:10px"><input type="checkbox" data-bind="connections.pinterest.hasSecret"> חלק מהלוחות סודיים</label>
+    </div>
+
+    <div class="panel" data-tile="instagram">
+      <div class="tile-head"><div class="badge">IG</div><h3>Instagram</h3><span class="chip"></span></div>
+      <p class="hint">גם כאן אין חיבור מוכן. הפרופיל שלך, ומעצבים או מותגים שאת אוהבת.</p>
+      <label>פרופילים (קישור בכל שורה)</label>
+      <textarea data-bind="connections.instagram.links" dir="ltr" placeholder="https://www.instagram.com/..."></textarea>
+    </div>
+
+    <div class="panel" data-tile="claudeHistory">
+      <div class="tile-head"><div class="badge">C</div><h3>היסטוריית Claude</h3><span class="chip"></span></div>
+      <p class="hint">תיקונים שכבר כתבת במילים ("לא, יותר נקי") הם זהב. ב-claude.ai: הגדרות ← Privacy ← Export data. כשהקובץ מגיע, שמרי אותו ב-<span dir="ltr">onboarding/answers/</span>.</p>
+      <label class="switch"><input type="checkbox" data-bind="connections.claudeHistory.exported"> ייצאתי ושמרתי</label>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. Projects ============ -->
+<section class="step" data-title="פרויקטים" data-code="02 / PROJECTS">
+  <div class="kicker">02 / PROJECTS</div>
+  <h1>פרויקטים שאהבת</h1>
+  <p class="lead">שלושה מספיקים להתחלה. ספרי כמו לחברה: מה הלקוח רצה, מה ניסית, מה זרקת ולמה, ומה בחרת בסוף. הכי טוב בקול.</p>
+  <div id="projects"></div>
+  <button class="btn ghost" id="addProject">+ פרויקט נוסף</button>
+</section>
+
+<!-- ============ 3. Reactions ============ -->
+<section class="step" data-title="תגובות" data-code="03 / REACT">
+  <div class="kicker">03 / REACT</div>
+  <h1>עבודות של אחרים</h1>
+  <p class="lead">תחושה ראשונה: אוהבת, באמצע, או לא. ומשפט אחד למה.</p>
+  <div id="reactionsEmpty" class="panel">
+    <h3>אין עדיין תמונות</h3>
+    <p class="hint">התמונות נטענות מ-<span dir="ltr">onboarding/reactions/</span> אחרי קישור התיקייה בשלב הפתיחה. או בחרי תמונות כאן:</p>
+    <input type="file" id="pickImages" accept="image/*" multiple>
+  </div>
+  <div id="reactionView" hidden>
+    <div class="stage">
+      <div class="viewer">
+        <img id="reactionImg" alt="">
+        <span class="count" id="reactionCounter"></span>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="verdicts" id="verdicts">
+            <button data-v="like" aria-pressed="false">אוהבת<kbd>1</kbd></button>
+            <button data-v="mixed" aria-pressed="false">באמצע<kbd>2</kbd></button>
+            <button data-v="dislike" aria-pressed="false">לא<kbd>3</kbd></button>
+          </div>
+          <label>למה? משפט אחד</label>
+          <div class="with-mic"><textarea id="reactionWhy" data-mic></textarea></div>
+          <div class="interim" data-interim-for="reactionWhy"></div>
+          <div class="row" style="margin-top:6px">
+            <button class="btn ghost" id="prevImg">→ הקודמת</button>
+            <button class="btn primary" id="nextImg">הבאה ←</button>
+          </div>
+          <div class="strip" id="strip"></div>
+          <div class="keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> לשיפוט · <kbd>←</kbd> <kbd>→</kbd> לדפדוף</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. Words and never ============ -->
+<section class="step" data-title="מילים" data-code="04 / LEXICON">
+  <div class="kicker">04 / LEXICON</div>
+  <h1>המילים שלך</h1>
+  <p class="lead">מילים שאת אומרת על עיצוב, ומה הן אומרות בשבילך. "נקי", "נושם", "חם". אין תשובה נכונה.</p>
+  <div class="panel words">
+    <div id="words"></div>
+    <button class="btn ghost" id="addWord">+ מילה נוספת</button>
+  </div>
+  <div class="panel">
+    <div class="tile-head"><div class="badge">✕</div><h3>מה לא היית עושה אף פעם</h3></div>
+    <p class="hint">דברים שגורמים לך להתכווץ כשאת רואה אותם.</p>
+    <div class="with-mic"><textarea class="long" id="never" data-bind="never" data-mic></textarea></div>
+    <div class="interim" data-interim-for="never"></div>
+  </div>
+</section>
+
+<!-- ============ 5. Finish ============ -->
+<section class="step" data-title="סיום" data-code="05 / LEARN">
+  <div class="kicker">05 / LEARN</div>
+  <h1>מוכנים ללמידה</h1>
+  <p class="lead">שומרים את התשובות, ונותנים ל-Claude פקודה אחת.</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="panel">
+    <div class="tile-head"><div class="badge">1</div><h3>שמירה</h3></div>
+    <button class="btn primary" id="save">שמירת התשובות</button>
+    <div id="saveStatus"></div>
+  </div>
+
+  <div class="panel">
+    <div class="tile-head"><div class="badge">2</div><h3>הפקודה</h3></div>
+    <p class="hint">פתחי את Claude Code בתיקיית הפרויקט (VS Code או אפליקציית Claude), הדביקי ושלחי:</p>
+    <div class="terminal">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <pre id="cmd">Read onboarding/learn.md and follow it.</pre>
+    </div>
+    <div class="row" style="margin-top:12px;align-items:center">
+      <button class="btn" id="copyCmd" style="flex:0 0 auto">העתקה</button>
+      <span class="hint" style="color:var(--muted);font-size:13px">המערכת תעבור על החיבורים אחד אחד, תראה לך מה היא עומדת לקרוא, ותחזור עם שאלות כן/לא על מה שלמדה.</span>
+    </div>
+  </div>
+</section>
+
+<div class="actions">
+  <button class="btn ghost" id="back">→ הקודם</button>
+  <button class="btn primary" id="next">הבא ←</button>
+</div>
+
+</main>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- state ---------- */
+const STORE_KEY = "taste-onboarding-v1";
+const blank = () => ({
+  version: 1,
+  savedAt: null,
+  designer: { name: "" },
+  dictation: { consent: false },
+  connections: {
+    gmail: { connected: false, query: "", exclude: "" },
+    drive: { connected: false, folders: "" },
+    figma: { connected: false, files: "" },
+    pinterest: { boards: "", hasSecret: false },
+    instagram: { links: "" },
+    claudeHistory: { exported: false }
+  },
+  projects: [{ name: "", year: "", field: "", links: "", story: "" }],
+  reactions: {},          // file name -> { verdict, why }
+  words: [{ word: "", meaning: "" }],
+  never: ""
+});
+
+let state = load();
+function load() {
+  const d = blank();
+  let s;
+  try { s = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch (e) {}
+  if (!s || typeof s !== "object") return d;
+  // Deep-merge against the defaults, so a draft saved by an older page version never lacks a key.
+  const nonEmpty = (a, fallback) => (Array.isArray(a) && a.length ? a : fallback);
+  return {
+    ...d, ...s,
+    designer: { ...d.designer, ...s.designer },
+    dictation: { ...d.dictation, ...s.dictation },
+    connections: Object.fromEntries(Object.keys(d.connections).map(k =>
+      [k, { ...d.connections[k], ...(s.connections || {})[k] }])),
+    projects: nonEmpty(s.projects, d.projects),
+    words: nonEmpty(s.words, d.words),
+    reactions: (s.reactions && typeof s.reactions === "object") ? s.reactions : {},
+    never: typeof s.never === "string" ? s.never : ""
+  };
+}
+let saveTimer = null;
+function flush() {
+  clearTimeout(saveTimer);
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function persist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 300);
+  refreshStatus();
+}
+window.addEventListener("pagehide", flush);
+document.addEventListener("visibilitychange", () => { if (document.hidden) flush(); });
+
+const getPath = (obj, path) => path.split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
+function setPath(obj, path, val) {
+  const keys = path.split(".");
+  const last = keys.pop();
+  const target = keys.reduce((o, k) => (o[k] ??= {}), obj);
+  target[last] = val;
+}
+
+/* ---------- simple bindings ---------- */
+function bindAll(root = document) {
+  root.querySelectorAll("[data-bind]").forEach(el => {
+    const path = el.dataset.bind;
+    const v = getPath(state, path);
+    if (el.type === "checkbox") el.checked = !!v; else el.value = v ?? "";
+    if (el._bound) return;
+    el._bound = true;
+    el.addEventListener(el.type === "checkbox" ? "change" : "input", () => {
+      setPath(state, path, el.type === "checkbox" ? el.checked : el.value);
+      persist();
+    });
+  });
+}
+
+/* ---------- steps ---------- */
+const steps = [...document.querySelectorAll("section.step")];
+let current = 0;
+const nav = document.getElementById("nav");
+steps.forEach((s, i) => {
+  const li = document.createElement("li");
+  const b = document.createElement("button");
+  b.innerHTML = `<span class="num">0${i}</span><span>${s.dataset.title}</span><span class="dot"></span>`;
+  b.addEventListener("click", () => go(i));
+  li.appendChild(b);
+  nav.appendChild(li);
+});
+function go(i) {
+  stopDictation();
+  current = Math.max(0, Math.min(steps.length - 1, i));
+  steps.forEach((s, j) => s.classList.toggle("active", j === current));
+  [...nav.querySelectorAll("button")].forEach((b, j) =>
+    j === current ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current"));
+  document.getElementById("back").disabled = current === 0;
+  document.getElementById("next").hidden = current === steps.length - 1;
+  if (steps[current].dataset.title === "סיום") renderSummary();
+  if (steps[current].dataset.title === "תגובות") renderReaction();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+document.getElementById("back").addEventListener("click", () => go(current - 1));
+document.getElementById("next").addEventListener("click", () => go(current + 1));
+
+/* ---------- live status: step dots, progress, connection chips ---------- */
+const filled = s => !!(s && String(s).trim());
+function tileState(key) {
+  const c = state.connections[key];
+  switch (key) {
+    case "gmail": return c.connected ? (filled(c.query) ? "on" : "part") : "";
+    case "figma": return c.connected ? (filled(c.files) ? "on" : "part") : (filled(c.files) ? "part" : "");
+    case "drive": return c.connected ? (filled(c.folders) ? "on" : "part") : (filled(c.folders) ? "part" : "");
+    case "pinterest": return filled(c.boards) ? "on" : "";
+    case "instagram": return filled(c.links) ? "on" : "";
+    case "claudeHistory": return c.exported ? "on" : "";
+  }
+  return "";
+}
+const CHIP_TEXT = { on: "מחובר", part: "חלקי", "": "לא מחובר" };
+function stepStates() {
+  const conn = Object.keys(state.connections).map(tileState);
+  const onCount = conn.filter(x => x === "on").length;
+  const stories = state.projects.filter(p => filled(p.story)).length;
+  const reacted = Object.values(state.reactions).filter(r => r.verdict).length;
+  const words = state.words.filter(w => filled(w.word)).length;
+  return [
+    filled(state.designer.name) ? "done" : "",
+    onCount >= 3 ? "done" : (onCount || conn.includes("part") ? "part" : ""),
+    stories >= 3 ? "done" : (stories ? "part" : ""),
+    reacted >= 20 ? "done" : (reacted ? "part" : ""),
+    words >= 3 && filled(state.never) ? "done" : (words || filled(state.never) ? "part" : ""),
+    state.savedAt ? "done" : ""
+  ];
+}
+function refreshStatus() {
+  const st = stepStates();
+  nav.querySelectorAll(".dot").forEach((d, i) => d.className = "dot " + (st[i] || ""));
+  const score = st.reduce((a, s) => a + (s === "done" ? 1 : s === "part" ? .5 : 0), 0);
+  const pct = Math.round(score / st.length * 100);
+  document.getElementById("pct").textContent = pct + "%";
+  document.getElementById("bar").style.width = pct + "%";
+  document.querySelectorAll("[data-tile]").forEach(t => {
+    const s = tileState(t.dataset.tile);
+    const chip = t.querySelector(".chip");
+    chip.className = "chip " + s;
+    chip.textContent = CHIP_TEXT[s];
+  });
+}
+
+/* ---------- dictation (Chrome / Edge Web Speech) ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, recTarget = null, recBtn = null, wantOn = false;
+const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="wave"><i></i><i></i><i></i><i></i></span>';
+
+function micStatus() {
+  const el = document.getElementById("micStatus");
+  const chip = document.getElementById("chipMic");
+  const sys = document.getElementById("sysMic");
+  if (!SR) {
+    el.innerHTML = '<div class="note">הדפדפן הזה לא תומך בהכתבה. פתחי ב-Chrome או ב-Edge, או השתמשי בהכתבה של Windows: ‏Win + H.</div>';
+    chip.textContent = "לא נתמך"; chip.className = "chip"; sys.textContent = "unsupported"; sys.className = "";
+  } else if (state.dictation.consent) {
+    el.innerHTML = '<div class="ok">ההכתבה פעילה. הקול עובר דרך שירות הדיבור של הדפדפן (Google ב-Chrome, Microsoft ב-Edge) והופך לטקסט. ההקלטה עצמה לא נשמרת.</div>';
+    chip.textContent = "פעיל"; chip.className = "chip on"; sys.textContent = "ready"; sys.className = "on";
+  } else {
+    el.innerHTML = '<div class="note">בלחיצה הראשונה על המיקרופון תתבקשי לאשר: הקול עובר דרך שירות הדיבור של הדפדפן (Google ב-Chrome, Microsoft ב-Edge) כדי להפוך לטקסט. מעדיפה שלא? אפשר להקליד, או Win + H.</div>';
+    chip.textContent = "ממתין לאישור"; chip.className = "chip part"; sys.textContent = "awaiting consent"; sys.className = "";
+  }
+}
+
+function addMics(root = document) {
+  root.querySelectorAll("textarea[data-mic]").forEach(ta => {
+    if (ta._mic || !SR) return;
+    ta._mic = true;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "mic";
+    b.title = "הכתבה";
+    b.setAttribute("aria-label", "הכתבה");
+    b.innerHTML = MIC_SVG;
+    b.addEventListener("click", () => toggleDictation(ta, b));
+    ta.parentElement.appendChild(b);
+  });
+}
+
+function toggleDictation(ta, btn) {
+  if (recTarget === ta) { stopDictation(); return; }
+  if (!state.dictation.consent) {
+    const ok = confirm("ההכתבה שולחת את הקול שלך לשירות הדיבור של הדפדפן (Google ב-Chrome, Microsoft ב-Edge) כדי להפוך אותו לטקסט. ההקלטה לא נשמרת.\n\nלהמשיך?");
+    if (!ok) return;
+    state.dictation.consent = true; persist(); micStatus();
+  }
+  stopDictation();
+  recTarget = ta; recBtn = btn; wantOn = true;
+  btn.classList.add("on");
+  const r = rec = new SR();
+  // A reaction's text belongs to one image: remember which, so a late result never lands on the next one.
+  const reactionName = ta === whyBox && images[imgIndex] ? images[imgIndex].name : null;
+  let restarts = [];
+  r.lang = "he-IL";
+  r.continuous = true;
+  r.interimResults = true;
+  r.onresult = e => {
+    if (rec !== r) return;                       // stopped or replaced: drop late results
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (!e.results[i].isFinal) { interim += t; continue; }
+      if (reactionName && images[imgIndex]?.name !== reactionName) {
+        const rr = reactionFor(reactionName);
+        rr.why = (rr.why ? rr.why.replace(/\s*$/, " ") : "") + t.trim(); persist();
+        continue;
+      }
+      const sep = ta.value && !/\s$/.test(ta.value) ? " " : "";
+      ta.value += sep + t.trim();
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    showInterim(ta, interim);
+  };
+  r.onerror = e => {
+    if (e.error === "no-speech" || e.error === "aborted") return;
+    wantOn = false;
+    if (e.error === "not-allowed" || e.error === "service-not-allowed")
+      alert("אין גישה למיקרופון. אפשר לאשר בסמל המנעול שליד הכתובת, או להקליד.");
+    else if (e.error === "network")
+      alert("ההכתבה צריכה חיבור לאינטרנט. אפשר להקליד בינתיים.");
+    else
+      alert("ההכתבה נעצרה (" + e.error + "). אפשר להקליד.");
+  };
+  r.onend = () => {
+    if (rec !== r) return;
+    // Chrome stops after silence; keep listening until she presses stop, but never in a tight loop.
+    const now = Date.now();
+    restarts = restarts.filter(t => now - t < 3000);
+    if (wantOn && restarts.length < 3) {
+      restarts.push(now);
+      setTimeout(() => { if (rec === r && wantOn) { try { r.start(); } catch (e) { stopDictation(); } } }, 250);
+    } else stopDictation();
+  };
+  try { r.start(); } catch (e) { stopDictation(); }
+}
+function stopDictation() {
+  wantOn = false;
+  if (rec) { try { rec.abort(); } catch (e) {} }
+  if (recBtn) recBtn.classList.remove("on");
+  if (recTarget) showInterim(recTarget, "");
+  rec = null; recTarget = null; recBtn = null;
+}
+function showInterim(ta, text) {
+  const el = document.querySelector('[data-interim-for="' + ta.id + '"]');
+  if (el) el.textContent = text;
+}
+
+/* ---------- projects ---------- */
+let uid = 0;
+function renderProjects() {
+  stopDictation();   // the textareas are about to be replaced; their paths may shift after a removal
+  const box = document.getElementById("projects");
+  box.innerHTML = "";
+  state.projects.forEach((p, i) => {
+    const id = "story" + (uid++);
+    const card = document.createElement("div");
+    card.className = "panel project";
+    card.innerHTML = `
+      ${state.projects.length > 1 ? '<button class="remove" type="button">REMOVE ✕</button>' : ""}
+      <h3>פרויקט<span class="mono">#${String(i + 1).padStart(2, "0")}</span></h3>
+      <div class="row">
+        <div><label>שם הפרויקט או הלקוח</label><input type="text" data-bind="projects.${i}.name"></div>
+        <div style="flex:0 1 110px"><label>שנה</label><input type="text" data-bind="projects.${i}.year" inputmode="numeric" dir="ltr"></div>
+        <div><label>תחום</label><input type="text" data-bind="projects.${i}.field" placeholder="קפה, קוסמטיקה, נדל״ן"></div>
+      </div>
+      <label>קישורים: פיגמה, דרייב, אתר (קישור בכל שורה)</label>
+      <textarea data-bind="projects.${i}.links" dir="ltr"></textarea>
+      <label>הסיפור: מה הלקוח רצה, מה ניסית, מה זרקת ולמה, מה בחרת בסוף</label>
+      <div class="with-mic"><textarea class="long" id="${id}" data-bind="projects.${i}.story" data-mic></textarea></div>
+      <div class="interim" data-interim-for="${id}"></div>`;
+    const rm = card.querySelector(".remove");
+    if (rm) rm.addEventListener("click", () => {
+      if (!confirm("להסיר את הפרויקט הזה?")) return;
+      state.projects.splice(i, 1); persist(); renderProjects();
+    });
+    box.appendChild(card);
+  });
+  bindAll(box); addMics(box);
+}
+document.getElementById("addProject").addEventListener("click", () => {
+  state.projects.push({ name: "", year: "", field: "", links: "", story: "" });
+  persist(); renderProjects();
+});
+
+/* ---------- words ---------- */
+function renderWords() {
+  stopDictation();
+  const box = document.getElementById("words");
+  box.innerHTML = "";
+  state.words.forEach((w, i) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `
+      <div style="flex:0 1 180px"><input type="text" data-bind="words.${i}.word" placeholder="המילה"></div>
+      <div style="flex:3 1 260px"><input type="text" data-bind="words.${i}.meaning" placeholder="מה היא אומרת בשבילך, ואיפה ראית אותה"></div>`;
+    box.appendChild(row);
+  });
+  bindAll(box);
+}
+document.getElementById("addWord").addEventListener("click", () => {
+  state.words.push({ word: "", meaning: "" }); persist(); renderWords();
+});
+
+/* ---------- folder (File System Access) ---------- */
+let rootDir = null;
+let images = [];        // [{ name, url }]
+let imgIndex = 0;
+const IMG_RE = /\.(png|jpe?g|webp|gif|avif)$/i;
+
+document.getElementById("pickFolder").addEventListener("click", async () => {
+  const status = document.getElementById("folderStatus");
+  const chip = document.getElementById("chipFolder");
+  if (!window.showDirectoryPicker) {
+    status.innerHTML = '<div class="note">הדפדפן הזה לא מאפשר לקשר תיקייה. אפשר להמשיך: את התמונות בוחרים ידנית בשלב התגובות, ובסוף התשובות יורדות כקובץ שמעבירים ל-<span dir="ltr">onboarding/answers/</span>.</div>';
+    return;
+  }
+  try {
+    const dir = await window.showDirectoryPicker({ id: "taste-repo", mode: "readwrite" });
+    let onb;
+    try { onb = await dir.getDirectoryHandle("onboarding"); await dir.getDirectoryHandle("taste"); }
+    catch (e) {
+      status.innerHTML = '<div class="note">זו לא התיקייה הנכונה: חסרות בה <span dir="ltr">taste</span> ו-<span dir="ltr">onboarding</span>. בחרי את התיקייה הראשית של ה-repo.</div>';
+      return;
+    }
+    rootDir = dir;
+    let count = 0;
+    try {
+      const reactDir = await onb.getDirectoryHandle("reactions");
+      images.forEach(im => URL.revokeObjectURL(im.url));
+      images = [];
+      for await (const [name, h] of reactDir.entries()) {
+        if (h.kind === "file" && IMG_RE.test(name)) {
+          images.push({ name, url: URL.createObjectURL(await h.getFile()) });
+        }
+      }
+      images.sort((a, b) => a.name.localeCompare(b.name));
+      count = images.length;
+    } catch (e) {}
+    status.innerHTML = `<div class="ok">מקושר ל-"${escapeHtml(dir.name)}". נמצאו ${count} תמונות לתגובות.</div>`;
+    chip.textContent = "מקושר"; chip.className = "chip on";
+    const sys = document.getElementById("sysFolder"); sys.textContent = dir.name; sys.className = "on";
+    imgIndex = firstUnanswered();
+    renderReaction();
+  } catch (e) {
+    if (e.name !== "AbortError") status.innerHTML = '<div class="note">לא הצלחתי לפתוח את התיקייה: ' + escapeHtml(e.message) + '</div>';
+  }
+});
+
+document.getElementById("pickImages").addEventListener("change", e => {
+  stopDictation();
+  images.forEach(im => URL.revokeObjectURL(im.url));
+  images = [...e.target.files].filter(f => IMG_RE.test(f.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(f => ({ name: f.name, url: URL.createObjectURL(f) }));
+  imgIndex = firstUnanswered();
+  renderReaction();
+});
+
+/* ---------- reactions ---------- */
+function firstUnanswered() {
+  const i = images.findIndex(im => !state.reactions[im.name]?.verdict);
+  return i === -1 ? 0 : i;
+}
+const whyBox = document.getElementById("reactionWhy");
+function renderReaction() {
+  const has = images.length > 0;
+  document.getElementById("reactionsEmpty").hidden = has;
+  document.getElementById("reactionView").hidden = !has;
+  if (!has) return;
+  const im = images[imgIndex];
+  const r = state.reactions[im.name] || {};
+  document.getElementById("reactionImg").src = im.url;
+  document.getElementById("reactionImg").alt = im.name;
+  const answered = images.filter(x => state.reactions[x.name]?.verdict).length;
+  document.getElementById("reactionCounter").textContent =
+    `${String(imgIndex + 1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")} · ${answered} done`;
+  document.querySelectorAll("#verdicts button").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.v === r.verdict)));
+  whyBox.value = r.why || "";
+  document.getElementById("prevImg").disabled = imgIndex === 0;
+  document.getElementById("nextImg").textContent = imgIndex === images.length - 1 ? "סיימתי ←" : "הבאה ←";
+  document.getElementById("strip").innerHTML = images.map((x, j) =>
+    `<i class="${state.reactions[x.name]?.verdict || ""}${j === imgIndex ? " cur" : ""}"></i>`).join("");
+}
+function reactionFor(name) { return (state.reactions[name] ??= { verdict: "", why: "" }); }
+function setVerdict(v) {
+  const im = images[imgIndex]; if (!im) return;
+  reactionFor(im.name).verdict = v; persist(); renderReaction();
+}
+document.querySelectorAll("#verdicts button").forEach(b => b.addEventListener("click", () => setVerdict(b.dataset.v)));
+whyBox.addEventListener("input", () => {
+  const im = images[imgIndex]; if (!im) return;
+  reactionFor(im.name).why = whyBox.value; persist();
+});
+function prevImage() { if (imgIndex > 0) { stopDictation(); imgIndex--; renderReaction(); } }
+function nextImage() {
+  stopDictation();
+  if (imgIndex < images.length - 1) { imgIndex++; renderReaction(); } else go(current + 1);
+}
+document.getElementById("prevImg").addEventListener("click", prevImage);
+document.getElementById("nextImg").addEventListener("click", nextImage);
+// Keyboard: 1/2/3 to judge, arrows to move (RTL: left = next). Ignored while typing.
+document.addEventListener("keydown", e => {
+  if (steps[current].dataset.title !== "תגובות" || !images.length) return;
+  const t = e.target;
+  if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT")) return;
+  if (e.key === "1") setVerdict("like");
+  else if (e.key === "2") setVerdict("mixed");
+  else if (e.key === "3") setVerdict("dislike");
+  else if (e.key === "ArrowLeft") nextImage();
+  else if (e.key === "ArrowRight") prevImage();
+});
+
+/* ---------- finish ---------- */
+const lines = s => (s || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+function exportData() {
+  const c = state.connections;
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    designer: state.designer,
+    connections: {
+      gmail: { ...c.gmail },
+      drive: { connected: c.drive.connected, folders: lines(c.drive.folders) },
+      figma: { connected: c.figma.connected, files: lines(c.figma.files) },
+      pinterest: { boards: lines(c.pinterest.boards), hasSecret: c.pinterest.hasSecret },
+      instagram: { links: lines(c.instagram.links) },
+      claudeHistory: { ...c.claudeHistory }
+    },
+    projects: state.projects
+      .filter(p => p.name || p.story)
+      .map(p => ({ name: p.name, year: p.year, field: p.field, links: lines(p.links), story: p.story })),
+    reactions: Object.entries(state.reactions)
+      .filter(([, r]) => r.verdict || (r.why || "").trim())   // keep a spoken reason even without a verdict
+      .map(([file, r]) => ({ file: "onboarding/reactions/" + file, verdict: r.verdict, why: r.why })),
+    words: state.words.filter(w => w.word),
+    never: state.never
+  };
+}
+function renderSummary() {
+  const d = exportData();
+  const conn = Object.keys(state.connections).filter(k => tileState(k) === "on").length;
+  const stats = [
+    [conn + "/6", "חיבורים"],
+    [d.projects.length, "פרויקטים"],
+    [d.reactions.length, "תגובות"],
+    [d.words.length, "מילים"],
+    [d.never.trim() ? "✓" : "—", "אף פעם"]
+  ];
+  document.getElementById("stats").innerHTML = stats.map(([n, l]) =>
+    `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join("");
+}
+document.getElementById("save").addEventListener("click", async () => {
+  const status = document.getElementById("saveStatus");
+  const data = exportData();
+  state.savedAt = data.savedAt; persist();
+  const json = JSON.stringify(data, null, 2);
+  if (rootDir) {
+    try {
+      const onb = await rootDir.getDirectoryHandle("onboarding");
+      const ans = await onb.getDirectoryHandle("answers", { create: true });
+      const fh = await ans.getFileHandle("onboarding.json", { create: true });
+      const w = await fh.createWritable();
+      await w.write(json); await w.close();
+      status.innerHTML = '<div class="ok">נשמר ב-<span dir="ltr">onboarding/answers/onboarding.json</span>. עכשיו לפקודה.</div>';
+      return;
+    } catch (e) {
+      status.innerHTML = '<div class="note">השמירה לתיקייה נכשלה (' + escapeHtml(e.message) + '). מוריד קובץ במקום.</div>';
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+  a.download = "onboarding.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  status.innerHTML += '<div class="note">הקובץ ירד לתיקיית ההורדות. העבירי אותו ל-<span dir="ltr">onboarding/answers/onboarding.json</span> לפני הפקודה.</div>';
+});
+document.getElementById("copyCmd").addEventListener("click", async e => {
+  const btn = e.currentTarget;
+  const text = document.getElementById("cmd").textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = "הועתק ✓"; }
+  catch (err) { getSelection().selectAllChildren(document.getElementById("cmd")); btn.textContent = "סומן · Ctrl+C"; }
+  setTimeout(() => (btn.textContent = "העתקה"), 2000);
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ---------- start ---------- */
+bindAll();
+renderProjects();
+renderWords();
+addMics();
+micStatus();
+refreshStatus();
+go(parseInt(location.hash.slice(1), 10) || 0);   // #2 opens step 2 directly
+</script>
+</body>
+</html>
