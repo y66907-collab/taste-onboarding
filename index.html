@@ -238,31 +238,28 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
 <section class="step" data-title="פתיחה" data-code="00 / INIT">
   <div class="kicker">00 / INIT</div>
   <h1>מלמדים את המערכת<br><em>את הטעם שלך.</em></h1>
-  <p class="lead">בסוף התהליך המערכת תציע ללקוחות חדשים כיווני עיצוב כמו שאת היית מציעה. המילה האחרונה תמיד שלך.</p>
+  <p class="lead">המערכת לומדת איך את מעצבת, ומציעה ללקוחות כיוונים כמו שלך.</p>
 
   <div class="flow">
-    <div><b>01</b><strong>חיבורים</strong><span>מחברים מייל, דרייב, פיגמה, פינטרסט, אינסטגרם</span></div>
-    <div><b>02</b><strong>פרויקטים</strong><span>מספרים על פרויקטים שאהבת</span></div>
-    <div><b>03</b><strong>תגובות</strong><span>מגיבים לעבודות של אחרים</span></div>
-    <div><b>04</b><strong>מילים</strong><span>המילים שלך, ומה לא אף פעם</span></div>
-    <div><b>05</b><strong>למידה</strong><span>פקודה אחת, והמערכת לומדת</span></div>
+    <div><b>01</b><strong>חיבורים</strong></div>
+    <div><b>02</b><strong>פרויקטים</strong></div>
+    <div><b>03</b><strong>תגובות</strong></div>
+    <div><b>04</b><strong>מילים</strong></div>
+    <div><b>05</b><strong>למידה</strong></div>
   </div>
 
   <div class="grid">
     <div class="panel">
       <div class="tile-head"><div class="badge">01</div><h3>מי את</h3></div>
-      <label>שם</label>
       <input type="text" data-bind="designer.name" placeholder="השם שלך">
     </div>
     <div class="panel">
       <div class="tile-head"><div class="badge">02</div><h3>תיקיית הפרויקט</h3><span class="chip" id="chipFolder">לא מקושר</span></div>
-      <p class="hint">התיקייה הראשית של ה-repo (יש בה <span dir="ltr">taste</span> ו-<span dir="ltr">onboarding</span>). ממנה נטענות התמונות, ואליה נשמרות התשובות.</p>
       <button class="btn" id="pickFolder">קישור תיקייה</button>
       <div id="folderStatus"></div>
     </div>
     <div class="panel">
       <div class="tile-head"><div class="badge">03</div><h3>מיקרופון</h3><span class="chip" id="chipMic">כבוי</span></div>
-      <p class="hint">בכל שדה טקסט יש כפתור הכתבה: מדברים, והטקסט נכתב לבד. הטיוטה נשמרת אוטומטית.</p>
       <div id="micStatus"></div>
     </div>
   </div>
@@ -272,52 +269,49 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
 <section class="step" data-title="חיבורים" data-code="01 / CONNECT">
   <div class="kicker">01 / CONNECT</div>
   <h1>חיבורים</h1>
-  <p class="lead">כל חיבור הוא בחשבון שלך ובהסכמה שלך. ככל שתחברי יותר, המערכת תלמד יותר. את החשבונות מחברים ב-claude.ai, בהגדרות ← Connectors, ומסמנים כאן.</p>
+  <p class="lead">מחברים ב-claude.ai ← הגדרות ← Connectors, ומסמנים כאן.</p>
 
   <div class="grid">
     <div class="panel" data-tile="gmail">
       <div class="tile-head"><div class="badge">@</div><h3>מייל</h3><span class="chip"></span></div>
-      <label class="switch"><input type="checkbox" data-bind="connections.gmail.connected"> חיברתי Gmail או Outlook</label>
-      <label>מה מותר לקרוא (חיפוש או תווית)</label>
+      <label class="switch"><input type="checkbox" data-bind="connections.gmail.connected"> מחובר</label>
+      <label>מה לקרוא</label>
       <input type="text" data-bind="connections.gmail.query" dir="auto" placeholder="label:clients">
-      <label>מה אסור לקרוא בשום מקרה</label>
-      <input type="text" data-bind="connections.gmail.exclude" placeholder="מיילים אישיים, לקוח מסוים">
-      <p class="hint" style="margin:10px 0 0">המערכת תראה לך את רשימת המיילים לפני שהיא קוראת.</p>
+      <label>מה לא לקרוא</label>
+      <input type="text" data-bind="connections.gmail.exclude" placeholder="מיילים אישיים">
     </div>
 
     <div class="panel" data-tile="figma">
       <div class="tile-head"><div class="badge">F</div><h3>Figma</h3><span class="chip"></span></div>
-      <label class="switch"><input type="checkbox" data-bind="connections.figma.connected"> חיברתי Figma</label>
-      <label>קבצים שאת גאה בהם (קישור בכל שורה)</label>
+      <label class="switch"><input type="checkbox" data-bind="connections.figma.connected"> מחובר</label>
+      <label>קבצים</label>
       <textarea data-bind="connections.figma.files" dir="ltr" placeholder="https://www.figma.com/design/..."></textarea>
     </div>
 
     <div class="panel" data-tile="drive">
       <div class="tile-head"><div class="badge">D</div><h3>Drive</h3><span class="chip"></span></div>
-      <label class="switch"><input type="checkbox" data-bind="connections.drive.connected"> חיברתי Google Drive או Dropbox</label>
-      <label>תיקיות של עבודות קודמות (קישור בכל שורה)</label>
+      <label class="switch"><input type="checkbox" data-bind="connections.drive.connected"> מחובר</label>
+      <label>תיקיות</label>
       <textarea data-bind="connections.drive.folders" dir="ltr" placeholder="https://drive.google.com/drive/folders/..."></textarea>
     </div>
 
     <div class="panel" data-tile="pinterest">
       <div class="tile-head"><div class="badge">P</div><h3>Pinterest</h3><span class="chip"></span></div>
-      <p class="hint">אין חיבור מוכן. המערכת קוראת את הלוחות בדפדפן. לוח סודי נקרא רק כשאת מחוברת.</p>
-      <label>לוחות (קישור בכל שורה)</label>
+      <label>לוחות</label>
       <textarea data-bind="connections.pinterest.boards" dir="ltr" placeholder="https://www.pinterest.com/..."></textarea>
-      <label class="switch" style="margin-top:10px"><input type="checkbox" data-bind="connections.pinterest.hasSecret"> חלק מהלוחות סודיים</label>
+      <label class="switch" style="margin-top:10px"><input type="checkbox" data-bind="connections.pinterest.hasSecret"> יש לוחות סודיים</label>
     </div>
 
     <div class="panel" data-tile="instagram">
       <div class="tile-head"><div class="badge">IG</div><h3>Instagram</h3><span class="chip"></span></div>
-      <p class="hint">גם כאן אין חיבור מוכן. הפרופיל שלך, ומעצבים או מותגים שאת אוהבת.</p>
-      <label>פרופילים (קישור בכל שורה)</label>
+      <label>פרופילים</label>
       <textarea data-bind="connections.instagram.links" dir="ltr" placeholder="https://www.instagram.com/..."></textarea>
     </div>
 
     <div class="panel" data-tile="claudeHistory">
       <div class="tile-head"><div class="badge">C</div><h3>היסטוריית Claude</h3><span class="chip"></span></div>
-      <p class="hint">תיקונים שכבר כתבת במילים ("לא, יותר נקי") הם זהב. ב-claude.ai: הגדרות ← Privacy ← Export data. כשהקובץ מגיע, שמרי אותו ב-<span dir="ltr">onboarding/answers/</span>.</p>
-      <label class="switch"><input type="checkbox" data-bind="connections.claudeHistory.exported"> ייצאתי ושמרתי</label>
+      <p class="hint">מייצאים מההגדרות ב-claude.ai, ושומרים בתיקיית answers.</p>
+      <label class="switch"><input type="checkbox" data-bind="connections.claudeHistory.exported"> ייצאתי</label>
     </div>
   </div>
 </section>
@@ -326,7 +320,7 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
 <section class="step" data-title="פרויקטים" data-code="02 / PROJECTS">
   <div class="kicker">02 / PROJECTS</div>
   <h1>פרויקטים שאהבת</h1>
-  <p class="lead">שלושה מספיקים להתחלה. ספרי כמו לחברה: מה הלקוח רצה, מה ניסית, מה זרקת ולמה, ומה בחרת בסוף. הכי טוב בקול.</p>
+  <p class="lead">מה הלקוח רצה, מה ניסית, מה זרקת ולמה. הכי טוב בקול.</p>
   <div id="projects"></div>
   <button class="btn ghost" id="addProject">+ פרויקט נוסף</button>
 </section>
@@ -335,10 +329,9 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
 <section class="step" data-title="תגובות" data-code="03 / REACT">
   <div class="kicker">03 / REACT</div>
   <h1>עבודות של אחרים</h1>
-  <p class="lead">תחושה ראשונה: אוהבת, באמצע, או לא. ומשפט אחד למה.</p>
+  <p class="lead">תחושה ראשונה, ומשפט אחד למה.</p>
   <div id="reactionsEmpty" class="panel">
-    <h3>אין עדיין תמונות</h3>
-    <p class="hint">התמונות נטענות מ-<span dir="ltr">onboarding/reactions/</span> אחרי קישור התיקייה בשלב הפתיחה. או בחרי תמונות כאן:</p>
+    <h3 style="margin-bottom:.9rem">אין תמונות</h3>
     <input type="file" id="pickImages" accept="image/*" multiple>
   </div>
   <div id="reactionView" hidden>
@@ -354,7 +347,7 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
             <button data-v="mixed" aria-pressed="false">באמצע<kbd>2</kbd></button>
             <button data-v="dislike" aria-pressed="false">לא<kbd>3</kbd></button>
           </div>
-          <label>למה? משפט אחד</label>
+          <label>למה?</label>
           <div class="with-mic"><textarea id="reactionWhy" data-mic></textarea></div>
           <div class="interim" data-interim-for="reactionWhy"></div>
           <div class="row" style="margin-top:6px">
@@ -362,7 +355,6 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
             <button class="btn primary" id="nextImg">הבאה ←</button>
           </div>
           <div class="strip" id="strip"></div>
-          <div class="keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> לשיפוט · <kbd>←</kbd> <kbd>→</kbd> לדפדוף</div>
         </div>
       </div>
     </div>
@@ -373,14 +365,13 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
 <section class="step" data-title="מילים" data-code="04 / LEXICON">
   <div class="kicker">04 / LEXICON</div>
   <h1>המילים שלך</h1>
-  <p class="lead">מילים שאת אומרת על עיצוב, ומה הן אומרות בשבילך. "נקי", "נושם", "חם". אין תשובה נכונה.</p>
+  <p class="lead">"נקי", "נושם", "חם": מה זה אומר אצלך?</p>
   <div class="panel words">
     <div id="words"></div>
     <button class="btn ghost" id="addWord">+ מילה נוספת</button>
   </div>
   <div class="panel">
     <div class="tile-head"><div class="badge">✕</div><h3>מה לא היית עושה אף פעם</h3></div>
-    <p class="hint">דברים שגורמים לך להתכווץ כשאת רואה אותם.</p>
     <div class="with-mic"><textarea class="long" id="never" data-bind="never" data-mic></textarea></div>
     <div class="interim" data-interim-for="never"></div>
   </div>
@@ -390,29 +381,23 @@ input[type=file]::file-selector-button{font:inherit;border:1px solid var(--line2
 <section class="step" data-title="סיום" data-code="05 / LEARN">
   <div class="kicker">05 / LEARN</div>
   <h1>מוכנים ללמידה</h1>
-  <p class="lead">שומרים את התשובות, ונותנים ל-Claude פקודה אחת.</p>
 
   <div class="stats" id="stats"></div>
 
   <div class="grid finish">
   <div class="panel">
     <div class="tile-head"><div class="badge">01</div><h3>שמירה</h3></div>
-    <p class="hint">התשובות נשמרות לתיקיית הפרויקט, או יורדות כקובץ.</p>
     <button class="btn primary" id="save">שמירת התשובות</button>
     <div id="saveStatus"></div>
   </div>
 
   <div class="panel">
-    <div class="tile-head"><div class="badge">02</div><h3>הפקודה</h3></div>
-    <p class="hint">פתחי את Claude Code בתיקיית הפרויקט (VS Code או אפליקציית Claude), הדביקי ושלחי:</p>
+    <div class="tile-head"><div class="badge">02</div><h3>פקודה ל-Claude Code</h3></div>
     <div class="terminal">
       <div class="bar"><i></i><i></i><i></i></div>
       <pre id="cmd">Read onboarding/learn.md and follow it.</pre>
     </div>
-    <div class="row" style="margin-top:12px;align-items:center">
-      <button class="btn" id="copyCmd" style="flex:0 0 auto">העתקה</button>
-      <span class="hint" style="color:var(--muted);font-size:.9rem">המערכת תעבור על החיבורים אחד אחד, תראה לך מה היא עומדת לקרוא, ותחזור עם שאלות כן/לא על מה שלמדה.</span>
-    </div>
+    <button class="btn" id="copyCmd" style="margin-top:12px">העתקה</button>
   </div>
   </div>
 </section>
@@ -587,13 +572,13 @@ function micStatus() {
   const chip = document.getElementById("chipMic");
   const sys = document.getElementById("sysMic");
   if (!SR) {
-    el.innerHTML = '<div class="note">הדפדפן הזה לא תומך בהכתבה. פתחי ב-Chrome או ב-Edge, או השתמשי בהכתבה של Windows: ‏Win + H.</div>';
+    el.innerHTML = '<div class="note">הכתבה עובדת ב-Chrome או ב-Edge.</div>';
     chip.textContent = "לא נתמך"; chip.className = "chip"; sys.textContent = "unsupported"; sys.className = "";
   } else if (state.dictation.consent) {
-    el.innerHTML = '<div class="ok">ההכתבה פעילה. הקול עובר דרך שירות הדיבור של הדפדפן (Google ב-Chrome, Microsoft ב-Edge) והופך לטקסט. ההקלטה עצמה לא נשמרת.</div>';
+    el.innerHTML = '<div class="ok">הכתבה פעילה.</div>';
     chip.textContent = "פעיל"; chip.className = "chip on"; sys.textContent = "ready"; sys.className = "on";
   } else {
-    el.innerHTML = '<div class="note">בלחיצה הראשונה על המיקרופון תתבקשי לאשר: הקול עובר דרך שירות הדיבור של הדפדפן (Google ב-Chrome, Microsoft ב-Edge) כדי להפוך לטקסט. מעדיפה שלא? אפשר להקליד, או Win + H.</div>';
+    el.innerHTML = '<div class="note">הקול עובר לשירות הדיבור של הדפדפן (Google / Microsoft).</div>';
     chip.textContent = "ממתין לאישור"; chip.className = "chip part"; sys.textContent = "awaiting consent"; sys.className = "";
   }
 }
@@ -696,16 +681,16 @@ function renderProjects() {
       <h3>פרויקט<span class="mono">#${String(i + 1).padStart(2, "0")}</span></h3>
       <div class="cols">
         <div>
-          <label>שם הפרויקט או הלקוח</label><input type="text" data-bind="projects.${i}.name">
+          <label>שם</label><input type="text" data-bind="projects.${i}.name">
           <div class="row">
             <div style="flex:0 1 110px"><label>שנה</label><input type="text" data-bind="projects.${i}.year" inputmode="numeric" dir="ltr"></div>
-            <div><label>תחום</label><input type="text" data-bind="projects.${i}.field" placeholder="קפה, קוסמטיקה, נדל״ן"></div>
+            <div><label>תחום</label><input type="text" data-bind="projects.${i}.field" placeholder="קפה, קוסמטיקה"></div>
           </div>
-          <label>קישורים: פיגמה, דרייב, אתר (קישור בכל שורה)</label>
+          <label>קישורים</label>
           <textarea data-bind="projects.${i}.links" dir="ltr"></textarea>
         </div>
         <div>
-          <label>הסיפור: מה הלקוח רצה, מה ניסית, מה זרקת ולמה, מה בחרת בסוף</label>
+          <label>הסיפור</label>
           <div class="with-mic"><textarea class="story" id="${id}" data-bind="projects.${i}.story" data-mic></textarea></div>
           <div class="interim" data-interim-for="${id}"></div>
         </div>
@@ -734,7 +719,7 @@ function renderWords() {
     row.className = "row";
     row.innerHTML = `
       <div style="flex:0 1 180px"><input type="text" data-bind="words.${i}.word" placeholder="המילה"></div>
-      <div style="flex:3 1 260px"><input type="text" data-bind="words.${i}.meaning" placeholder="מה היא אומרת בשבילך, ואיפה ראית אותה"></div>`;
+      <div style="flex:3 1 260px"><input type="text" data-bind="words.${i}.meaning" placeholder="מה זה אומר אצלך"></div>`;
     box.appendChild(row);
   });
   bindAll(box);
@@ -753,7 +738,7 @@ document.getElementById("pickFolder").addEventListener("click", async () => {
   const status = document.getElementById("folderStatus");
   const chip = document.getElementById("chipFolder");
   if (!window.showDirectoryPicker) {
-    status.innerHTML = '<div class="note">הדפדפן הזה לא מאפשר לקשר תיקייה. אפשר להמשיך: את התמונות בוחרים ידנית בשלב התגובות, ובסוף התשובות יורדות כקובץ שמעבירים ל-<span dir="ltr">onboarding/answers/</span>.</div>';
+    status.innerHTML = '<div class="note">לא נתמך בדפדפן הזה. אפשר להמשיך בלי.</div>';
     return;
   }
   try {
@@ -761,7 +746,7 @@ document.getElementById("pickFolder").addEventListener("click", async () => {
     let onb;
     try { onb = await dir.getDirectoryHandle("onboarding"); await dir.getDirectoryHandle("taste"); }
     catch (e) {
-      status.innerHTML = '<div class="note">זו לא התיקייה הנכונה: חסרות בה <span dir="ltr">taste</span> ו-<span dir="ltr">onboarding</span>. בחרי את התיקייה הראשית של ה-repo.</div>';
+      status.innerHTML = '<div class="note">לא התיקייה הנכונה. בחרי את התיקייה הראשית של הפרויקט.</div>';
       return;
     }
     rootDir = dir;
@@ -778,13 +763,13 @@ document.getElementById("pickFolder").addEventListener("click", async () => {
       images.sort((a, b) => a.name.localeCompare(b.name));
       count = images.length;
     } catch (e) {}
-    status.innerHTML = `<div class="ok">מקושר ל-"${escapeHtml(dir.name)}". נמצאו ${count} תמונות לתגובות.</div>`;
+    status.innerHTML = `<div class="ok">${count} תמונות נמצאו.</div>`;
     chip.textContent = "מקושר"; chip.className = "chip on";
     const sys = document.getElementById("sysFolder"); sys.textContent = dir.name; sys.className = "on";
     imgIndex = firstUnanswered();
     renderReaction();
   } catch (e) {
-    if (e.name !== "AbortError") status.innerHTML = '<div class="note">לא הצלחתי לפתוח את התיקייה: ' + escapeHtml(e.message) + '</div>';
+    if (e.name !== "AbortError") status.innerHTML = '<div class="note">לא נפתח: ' + escapeHtml(e.message) + '</div>';
   }
 });
 
@@ -904,10 +889,10 @@ document.getElementById("save").addEventListener("click", async () => {
       const fh = await ans.getFileHandle("onboarding.json", { create: true });
       const w = await fh.createWritable();
       await w.write(json); await w.close();
-      status.innerHTML = '<div class="ok">נשמר ב-<span dir="ltr">onboarding/answers/onboarding.json</span>. עכשיו לפקודה.</div>';
+      status.innerHTML = '<div class="ok">נשמר.</div>';
       return;
     } catch (e) {
-      status.innerHTML = '<div class="note">השמירה לתיקייה נכשלה (' + escapeHtml(e.message) + '). מוריד קובץ במקום.</div>';
+      status.innerHTML = '<div class="note">לא נשמר לתיקייה (' + escapeHtml(e.message) + '). מוריד קובץ.</div>';
     }
   }
   const a = document.createElement("a");
@@ -915,7 +900,7 @@ document.getElementById("save").addEventListener("click", async () => {
   a.download = "onboarding.json";
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  status.innerHTML += '<div class="note">הקובץ ירד לתיקיית ההורדות. העבירי אותו ל-<span dir="ltr">onboarding/answers/onboarding.json</span> לפני הפקודה.</div>';
+  status.innerHTML += '<div class="note">הקובץ ירד. העבירי אותו ל-<span dir="ltr">onboarding/answers/</span></div>';
 });
 document.getElementById("copyCmd").addEventListener("click", async e => {
   const btn = e.currentTarget;
